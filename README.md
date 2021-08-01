@@ -22,8 +22,9 @@ When running the script, it will:
 - Export bottom copper layer Gerber, relative to auxiliar origin axis.
 - Export outline layer Gerber, relative to auxiliar origin axis.
 - Export Excellon drill files (PTH and NPTH), relative to auxiliar origin axis.
+- Save a copy of patched Kicad PCB file.
 
-It is recommended to validate the output files with a Gerber viewer. The script won't change the original Kicad PCB file.
+It is recommended to validate the output files with a Gerber viewer and/or the exported Kicad PCB file. The script won't change the original Kicad PCB file.
 
 
 ## Limitations

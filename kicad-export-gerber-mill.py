@@ -80,6 +80,9 @@ def plot(output_dir, board):
 
     controller.ClosePlot()
 
+    new_pcb = output_dir.joinpath(pathlib.Path(board.GetFileName()).name)
+    pcbnew.SaveBoard(os.fspath(new_pcb.resolve()), board)
+
 
 if __name__ == '__main__':
     args = parser.parse_args()
