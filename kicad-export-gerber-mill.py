@@ -9,6 +9,9 @@ parser = argparse.ArgumentParser(description='Export Gerber files from a Kicad '
                                  'PCB, for usage with CNC milling machines')
 parser.add_argument('--tool-dia', metavar='DIA', type=int,
                     help='drill bit diameter (in um, default: 800)', default=800)
+parser.add_argument('--tool-dia-tolerance', metavar='PERC', type=int,
+                    help='skip resizing any pads bigger or smaller than PERC percents '
+                    'of the drill bit diameter (default 50)', default=50)
 parser.add_argument('--keep-pad-size-ratio', action='store_true',
                     help='resize pads to keep size ratio when patching drill holes')
 parser.add_argument('--grow-pads', metavar='PERC', type=int,
@@ -20,36 +23,45 @@ parser.add_argument('kicad_pcb', metavar='KICAD_PCB', type=pathlib.Path,
                     help='a Kicad PCB file')
 
 
-def patch_board(fileobj, tool_dia, keep_pad_size_ratio, grow_pads):
+def patch_board(fileobj, tool_dia, tool_dia_tolerance, keep_pad_size_ratio, grow_pads):
     board = pcbnew.LoadBoard(os.fspath(fileobj.resolve()))
 
+    orig_drill_dia_max = tool_dia * (100 + tool_dia_tolerance) * 10
+    orig_drill_dia_min = tool_dia * (100 - tool_dia_tolerance) * 10
     drill_size = pcbnew.wxSize(tool_dia * 1000, tool_dia * 1000)
 
     # iterate over pads
     for pad in board.GetPads():
         if pad.GetAttribute() == pcbnew.PAD_ATTRIB_STANDARD:
             size = pad.GetSize()
+            orig_drill_size = pad.GetDrillSize()
 
-            # keep pad size ratio
-            if keep_pad_size_ratio:
-                old_drill_size = pad.GetDrillSize()
-                ratio_x = drill_size.x / old_drill_size.x
-                ratio_y = drill_size.y / old_drill_size.y
-                size = pcbnew.wxSize(size.x * ratio_x, size.y * ratio_y)
+            if orig_drill_size.x > orig_drill_dia_max or \
+               orig_drill_size.x < orig_drill_dia_min or \
+               orig_drill_size.y > orig_drill_dia_max or \
+               orig_drill_size.y < orig_drill_dia_min:
+                print('skipping drill hole resize: %s' % pad.GetDrillSize())
+
+            else:
+                # keep pad size ratio
+                if keep_pad_size_ratio:
+                    ratio_x = drill_size.x / orig_drill_size.x
+                    ratio_y = drill_size.y / orig_drill_size.y
+                    size = pcbnew.wxSize(size.x * ratio_x, size.y * ratio_y)
+
+                # validate drill size
+                if drill_size.x > size.x or drill_size.y > size.y:
+                    raise RuntimeError('Invalid pad size: %s' % size)
+
+                # fix drill size
+                pad.SetDrillSize(drill_size)
+                pad.SetDrillShape(pcbnew.PAD_DRILL_SHAPE_CIRCLE)
 
             # grow pad size
             if grow_pads:
                 size = pcbnew.wxSize(size.x * (100 + grow_pads) / 100,
                                      size.y * (100 + grow_pads) / 100)
-
-            # validate pad size
-            if drill_size.x > size.x or drill_size.y > size.y:
-                raise RuntimeError('Invalid pad size: %s' % size)
-
-            # fix pad size
             pad.SetSize(size)
-            pad.SetDrillSize(drill_size)
-            pad.SetDrillShape(pcbnew.PAD_DRILL_SHAPE_CIRCLE)
 
     # iterate over vias
     for via in board.GetTracks():
@@ -105,4 +117,5 @@ def plot(output_dir, board):
 if __name__ == '__main__':
     args = parser.parse_args()
     plot(args.output_dir, patch_board(args.kicad_pcb, args.tool_dia,
+                                      args.tool_dia_tolerance,
                                       args.keep_pad_size_ratio, args.grow_pads))
