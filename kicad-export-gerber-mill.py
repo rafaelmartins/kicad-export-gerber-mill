@@ -7,6 +7,8 @@ import pcbnew
 
 parser = argparse.ArgumentParser(description='Export Gerber files from a Kicad '
                                  'PCB, for usage with CNC milling machines')
+parser.add_argument('--list-pads', action='store_true',
+                    help='list pad sizes and exit')
 parser.add_argument('--tool-dia', metavar='DIA', type=int,
                     help='drill bit diameter (in um, default: 800)', default=800)
 parser.add_argument('--tool-dia-tolerance', metavar='PERC', type=int,
@@ -114,8 +116,39 @@ def plot(output_dir, board):
     pcbnew.SaveBoard(os.fspath(new_pcb.resolve()), board)
 
 
+def list_pads(fileobj):
+    board = pcbnew.LoadBoard(os.fspath(fileobj.resolve()))
+
+    sizes = {}
+
+    for pad in board.GetPads():
+        if pad.GetAttribute() != pcbnew.PAD_ATTRIB_STANDARD:
+            continue
+
+        mod = pad
+        while mod is not None and mod.GetClass() != "MODULE":
+            mod = mod.GetParent()
+
+        if mod is None:
+            continue
+
+        drill_size = max(pad.GetDrillSize())
+
+        s = sizes.setdefault(drill_size, set())
+        s.add(mod.GetReference())
+
+        #print(pad, mod.GetReference(), drill_size)
+
+    for size in sorted(sizes):
+        print('%d: %s' % (size / 1000, ', '.join(sorted(sizes[size]))))
+
+
 if __name__ == '__main__':
     args = parser.parse_args()
-    plot(args.output_dir, patch_board(args.kicad_pcb, args.tool_dia,
-                                      args.tool_dia_tolerance,
-                                      args.keep_pad_size_ratio, args.grow_pads))
+
+    if args.list_pads:
+        list_pads(args.kicad_pcb)
+    else:
+        plot(args.output_dir, patch_board(args.kicad_pcb, args.tool_dia,
+                                          args.tool_dia_tolerance,
+                                          args.keep_pad_size_ratio, args.grow_pads))
