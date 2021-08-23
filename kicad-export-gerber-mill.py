@@ -34,36 +34,38 @@ def patch_board(fileobj, tool_dia, tool_dia_tolerance, keep_pad_size_ratio, grow
 
     # iterate over pads
     for pad in board.GetPads():
-        if pad.GetAttribute() == pcbnew.PAD_ATTRIB_STANDARD:
-            size = pad.GetSize()
-            orig_drill_size = pad.GetDrillSize()
+        if pad.GetAttribute() != pcbnew.PAD_ATTRIB_STANDARD:
+            continue
 
-            if orig_drill_size.x > orig_drill_dia_max or \
-               orig_drill_size.x < orig_drill_dia_min or \
-               orig_drill_size.y > orig_drill_dia_max or \
-               orig_drill_size.y < orig_drill_dia_min:
-                print('skipping drill hole resize: %s' % pad.GetDrillSize())
+        size = pad.GetSize()
+        orig_drill_size = pad.GetDrillSize()
 
-            else:
-                # keep pad size ratio
-                if keep_pad_size_ratio:
-                    ratio_x = drill_size.x / orig_drill_size.x
-                    ratio_y = drill_size.y / orig_drill_size.y
-                    size = pcbnew.wxSize(size.x * ratio_x, size.y * ratio_y)
+        if orig_drill_size.x > orig_drill_dia_max or \
+           orig_drill_size.x < orig_drill_dia_min or \
+           orig_drill_size.y > orig_drill_dia_max or \
+           orig_drill_size.y < orig_drill_dia_min:
+            print('skipping drill hole resize: %s' % pad.GetDrillSize())
 
-                # validate drill size
-                if drill_size.x > size.x or drill_size.y > size.y:
-                    raise RuntimeError('Invalid pad size: %s' % size)
+        else:
+            # keep pad size ratio
+            if keep_pad_size_ratio:
+                ratio_x = drill_size.x / orig_drill_size.x
+                ratio_y = drill_size.y / orig_drill_size.y
+                size = pcbnew.wxSize(size.x * ratio_x, size.y * ratio_y)
 
-                # fix drill size
-                pad.SetDrillSize(drill_size)
-                pad.SetDrillShape(pcbnew.PAD_DRILL_SHAPE_CIRCLE)
+            # validate drill size
+            if drill_size.x > size.x or drill_size.y > size.y:
+                raise RuntimeError('Invalid pad size: %s' % size)
 
-            # grow pad size
-            if grow_pads:
-                size = pcbnew.wxSize(size.x * (100 + grow_pads) / 100,
-                                     size.y * (100 + grow_pads) / 100)
-            pad.SetSize(size)
+            # fix drill size
+            pad.SetDrillSize(drill_size)
+            pad.SetDrillShape(pcbnew.PAD_DRILL_SHAPE_CIRCLE)
+
+        # grow pad size
+        if grow_pads:
+            size = pcbnew.wxSize(size.x * (100 + grow_pads) / 100,
+                                 size.y * (100 + grow_pads) / 100)
+        pad.SetSize(size)
 
     # iterate over vias
     for via in board.GetTracks():
