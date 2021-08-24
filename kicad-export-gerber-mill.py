@@ -17,7 +17,7 @@ def tool_dia(val):
         if len(kvt) == 1:
             rv[-1] = int(kvt[0])
         elif len(kvt) == 2:
-            rv[int(kvt[0])] = int(kvt[1])
+            rv[int(kvt[1])] = int(kvt[0])
         else:
             raise ValueError(val)
 
@@ -44,18 +44,6 @@ parser.add_argument('kicad_pcb', metavar='KICAD_PCB', type=pathlib.Path,
                     help='a Kicad PCB file')
 
 
-def get_tool_dia(tool_dia, pad):
-    drill_size = max(pad.GetDrillSize())
-
-    td = tool_dia.get(drill_size / 1000)
-    if td is None:
-        td = tool_dia.get(-1)
-    if td is None:
-        raise RuntimeError('no tool diameter found for pad: %s' % pad.GetDrillSize())
-
-    return td
-
-
 def patch_board(fileobj, tool_dia_map, tool_dia_tolerance, keep_pad_size_ratio, grow_pads):
     board = pcbnew.LoadBoard(os.fspath(fileobj.resolve()))
 
@@ -66,7 +54,7 @@ def patch_board(fileobj, tool_dia_map, tool_dia_tolerance, keep_pad_size_ratio, 
 
         orig_drill_size = pad.GetDrillSize()
 
-        tool_dia = tool_dia_map.get(max(orig_drill_size))
+        tool_dia = tool_dia_map.get(max(orig_drill_size) / 1000)
         if tool_dia is None:
             tool_dia = tool_dia_map.get(-1)
         if tool_dia is None:
