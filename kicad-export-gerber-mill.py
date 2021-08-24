@@ -3,6 +3,9 @@
 import argparse
 import os
 import pathlib
+import shlex
+import sys
+
 import pcbnew
 
 
@@ -152,6 +155,9 @@ def plot(output_dir, board):
 
     new_pcb = output_dir.joinpath(pathlib.Path(board.GetFileName()).name)
     pcbnew.SaveBoard(os.fspath(new_pcb.resolve()), board)
+
+    with open(output_dir.joinpath('command.txt').resolve(), 'w') as fp:
+        print(' '.join([shlex.quote(i) for i in sys.argv]), file=fp)
 
 
 def list_pads(fileobj):
