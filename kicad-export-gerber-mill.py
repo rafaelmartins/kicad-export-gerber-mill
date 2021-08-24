@@ -5,12 +5,28 @@ import os
 import pathlib
 import pcbnew
 
+
+def tool_dia(val):
+    rv = {}
+
+    for kv in [i.strip() for i in val.split(',')]:
+        kvt = [i.strip() for i in kv.split('=')]
+        if len(kvt) == 1:
+            rv[-1] = int(kvt[0])
+        elif len(kvt) == 2:
+            rv[int(kvt[0])] = int(kvt[1])
+        else:
+            raise ValueError(val)
+
+    return rv
+
+
 parser = argparse.ArgumentParser(description='Export Gerber files from a Kicad '
                                  'PCB, for usage with CNC milling machines')
 parser.add_argument('--list-pads', action='store_true',
                     help='list pad sizes and exit')
-parser.add_argument('--tool-dia', metavar='DIA', type=int,
-                    help='drill bit diameter (in um, default: 800)', default=800)
+parser.add_argument('--tool-dia', metavar='DIA[,DIA=PAD_HOLE,...]', type=tool_dia,
+                    help='drill bit diameter (in um, default: 800)', default="800")
 parser.add_argument('--tool-dia-tolerance', metavar='PERC', type=int,
                     help='skip resizing any pads bigger or smaller than PERC percents '
                     'of the drill bit diameter (default 50)', default=50)
@@ -25,20 +41,40 @@ parser.add_argument('kicad_pcb', metavar='KICAD_PCB', type=pathlib.Path,
                     help='a Kicad PCB file')
 
 
-def patch_board(fileobj, tool_dia, tool_dia_tolerance, keep_pad_size_ratio, grow_pads):
-    board = pcbnew.LoadBoard(os.fspath(fileobj.resolve()))
+def get_tool_dia(tool_dia, pad):
+    drill_size = max(pad.GetDrillSize())
 
-    orig_drill_dia_max = tool_dia * (100 + tool_dia_tolerance) * 10
-    orig_drill_dia_min = tool_dia * (100 - tool_dia_tolerance) * 10
-    drill_size = pcbnew.wxSize(tool_dia * 1000, tool_dia * 1000)
+    td = tool_dia.get(drill_size / 1000)
+    if td is None:
+        td = tool_dia.get(-1)
+    if td is None:
+        raise RuntimeError('no tool diameter found for pad: %s' % pad.GetDrillSize())
+
+    return td
+
+
+def patch_board(fileobj, tool_dia_map, tool_dia_tolerance, keep_pad_size_ratio, grow_pads):
+    board = pcbnew.LoadBoard(os.fspath(fileobj.resolve()))
 
     # iterate over pads
     for pad in board.GetPads():
         if pad.GetAttribute() != pcbnew.PAD_ATTRIB_STANDARD:
             continue
 
-        size = pad.GetSize()
         orig_drill_size = pad.GetDrillSize()
+
+        tool_dia = tool_dia_map.get(max(orig_drill_size))
+        if tool_dia is None:
+            tool_dia = tool_dia_map.get(-1)
+        if tool_dia is None:
+            print('skipping pad without tool diameter: %s' % orig_drill_size)
+            continue
+
+        orig_drill_dia_max = tool_dia * (100 + tool_dia_tolerance) * 10
+        orig_drill_dia_min = tool_dia * (100 - tool_dia_tolerance) * 10
+        drill_size = pcbnew.wxSize(tool_dia * 1000, tool_dia * 1000)
+
+        size = pad.GetSize()
 
         if orig_drill_size.x > orig_drill_dia_max or \
            orig_drill_size.x < orig_drill_dia_min or \
