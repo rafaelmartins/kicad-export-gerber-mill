@@ -16,6 +16,12 @@ The script requires Python 3 and Kicad/Pcbnew with Python support. It should be 
 
 The arguments used in the example are the default values and can be ommited. Tool diameter is in `um`, not `mm`. Please run `./kicad-export-gerber-mill.py --help` for details and other arguments.
 
+It is also possible to list the drill sizes used by the PCB using the following command:
+
+    $ ./kicad-export-gerber-mill.py \
+          --list-pads \
+          mypcb.kicad_pcb
+
 
 ## Script actions
 
@@ -29,6 +35,7 @@ When running the script, it will:
 - Export outline layer Gerber, relative to auxiliar origin axis.
 - Export Excellon drill files (PTH and NPTH), relative to auxiliar origin axis.
 - Save a copy of patched Kicad PCB file.
+- Save a `command.txt` file with the command-line arguments passed when invoking the script.
 
 It is recommended to validate the output files with a Gerber viewer and/or the exported Kicad PCB file. The script won't change the original Kicad PCB file.
 
