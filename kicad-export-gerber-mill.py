@@ -24,6 +24,12 @@ def tool_dia(val):
     return rv
 
 
+def grow_pads_skip(val):
+    if len(val) == 0:
+        return []
+    return [i.strip() for i in val.split(',')]
+
+
 parser = argparse.ArgumentParser(description='Export Gerber files from a Kicad '
                                  'PCB, for usage with CNC milling machines')
 parser.add_argument('--list-pads', action='store_true',
@@ -38,13 +44,27 @@ parser.add_argument('--keep-pad-size-ratio', action='store_true',
 parser.add_argument('--grow-pads', metavar='PERC', type=int,
                     help='grow pads by the given percentage (default: 0, disabled)',
                     default=0)
+parser.add_argument('--grow-pads-skip', metavar='REF[,REF...]', type=grow_pads_skip,
+                    help='reference of pads to skip when growing', default='')
 parser.add_argument('--output-dir', metavar='DIR', type=pathlib.Path,
                     help='output directory (default: ./gerber)', default='./gerber')
 parser.add_argument('kicad_pcb', metavar='KICAD_PCB', type=pathlib.Path,
                     help='a Kicad PCB file')
 
 
-def patch_board(fileobj, tool_dia_map, tool_dia_tolerance, keep_pad_size_ratio, grow_pads):
+def get_pad_reference(pad):
+    mod = pad
+    while mod is not None and mod.GetClass() != "MODULE":
+        mod = mod.GetParent()
+
+    if mod is None:
+        raise RuntimeError('unable to find pad reference: %s' % pad)
+
+    return mod.GetReference()
+
+
+def patch_board(fileobj, tool_dia_map, tool_dia_tolerance, keep_pad_size_ratio,
+                grow_pads, grow_pads_skip):
     board = pcbnew.LoadBoard(os.fspath(fileobj.resolve()))
 
     # iterate over pads
@@ -90,8 +110,11 @@ def patch_board(fileobj, tool_dia_map, tool_dia_tolerance, keep_pad_size_ratio, 
 
         # grow pad size
         if grow_pads:
-            size = pcbnew.wxSize(size.x * (100 + grow_pads) / 100,
-                                 size.y * (100 + grow_pads) / 100)
+            if get_pad_reference(pad) in grow_pads_skip:
+                print('skipping pad that should not be grown: %s' % orig_drill_size)
+            else:
+                size = pcbnew.wxSize(size.x * (100 + grow_pads) / 100,
+                                     size.y * (100 + grow_pads) / 100)
         pad.SetSize(size)
 
     # iterate over vias
@@ -157,19 +180,8 @@ def list_pads(fileobj):
         if pad.GetAttribute() != pcbnew.PAD_ATTRIB_STANDARD:
             continue
 
-        mod = pad
-        while mod is not None and mod.GetClass() != "MODULE":
-            mod = mod.GetParent()
-
-        if mod is None:
-            continue
-
-        drill_size = max(pad.GetDrillSize())
-
-        s = sizes.setdefault(drill_size, set())
-        s.add(mod.GetReference())
-
-        #print(pad, mod.GetReference(), drill_size)
+        s = sizes.setdefault(max(pad.GetDrillSize()), set())
+        s.add(get_pad_reference(pad))
 
     for size in sorted(sizes):
         print('%d: %s' % (size / 1000, ', '.join(sorted(sizes[size]))))
@@ -183,4 +195,5 @@ if __name__ == '__main__':
     else:
         plot(args.output_dir, patch_board(args.kicad_pcb, args.tool_dia,
                                           args.tool_dia_tolerance,
-                                          args.keep_pad_size_ratio, args.grow_pads))
+                                          args.keep_pad_size_ratio,
+                                          args.grow_pads, args.grow_pads_skip))
