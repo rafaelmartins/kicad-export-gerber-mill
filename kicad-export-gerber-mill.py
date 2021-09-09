@@ -86,6 +86,7 @@ def patch_board(fileobj, tool_dia_map, tool_dia_tolerance, keep_pad_size_ratio,
         drill_size = pcbnew.wxSize(tool_dia * 1000, tool_dia * 1000)
 
         size = pad.GetSize()
+        offset = pad.GetOffset()
 
         if orig_drill_size.x > orig_drill_dia_max or \
            orig_drill_size.x < orig_drill_dia_min or \
@@ -115,7 +116,11 @@ def patch_board(fileobj, tool_dia_map, tool_dia_tolerance, keep_pad_size_ratio,
             else:
                 size = pcbnew.wxSize(size.x * (100 + grow_pads) / 100,
                                      size.y * (100 + grow_pads) / 100)
+                offset = pcbnew.wxPoint(offset.x * (100 + grow_pads) / 100,
+                                        offset.y * (100 + grow_pads) / 100)
+
         pad.SetSize(size)
+        pad.SetOffset(offset)
 
     # iterate over vias
     for via in board.GetTracks():
