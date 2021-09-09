@@ -17,7 +17,7 @@ def tool_dia(val):
         if len(kvt) == 1:
             rv[-1] = int(kvt[0])
         elif len(kvt) == 2:
-            rv[int(kvt[1])] = int(kvt[0])
+            rv[int(kvt[0])] = int(kvt[1])
         else:
             raise ValueError(val)
 
