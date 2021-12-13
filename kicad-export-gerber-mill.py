@@ -123,13 +123,17 @@ def patch_board(fileobj, tool_dia_map, tool_dia_tolerance, keep_pad_size_ratio,
         pad.SetOffset(offset)
 
     # iterate over vias
-    for via in board.GetTracks():
-        if type(via) is not pcbnew.VIA:
-            continue
+    tool_dia = tool_dia_map.get(-1)
+    if tool_dia is not None:
+        tool_dia *= 1000
 
-        size = via.GetDrillValue()
-        if size != drill_size.x:
-            raise RuntimeError('Invalid via size: %s' % size)
+        for via in board.GetTracks():
+            if type(via) is not pcbnew.VIA:
+                continue
+
+            size = via.GetDrillValue()
+            if size != tool_dia:
+                raise RuntimeError('Invalid via size: %s' % tool_dia)
 
     return board
 
