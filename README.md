@@ -1,3 +1,8 @@
+<!-- github-to-forgejo:notice:start -->
+> [!IMPORTANT]
+> This repository has moved to [https://git.rafaelmartins.com/historical/kicad-export-gerber-mill](https://git.rafaelmartins.com/historical/kicad-export-gerber-mill). No further development is planned.
+<!-- github-to-forgejo:notice:end -->
+
 # kicad-export-gerber-mill
 
 A script to export Gerber files from a Kicad PCB for usage with CNC milling machines.
